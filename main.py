@@ -1,149 +1,103 @@
-from pygame.midi import Input, Output
-from launchpadbridge.launchpad import *
-from time import time, sleep
-from random import randint, uniform
-import threading
-
-
-DEBUG = False
-
-
-def log(stuff):
-    if DEBUG:
-        print(f"[LOG] {stuff}")
-
-
-class Ball:
-    x = None
-    y = None
-    lastX = None
-    lastY = None
-
-
-class Bar:
-    x = None
-    y = None
-    height = None
-
-
-def getRandomCell(minX, maxX, minY, maxY):
-    '''Returns x, y for a random cell in the grid'''
-    x = randint(minX, maxX)
-    y = randint(minY, maxY)
-    return x, y
-
-
-def cleanMiddle(out: Output):
-    for x in range(1, 7):
-        for y in range(0, 8):
-            setCell(x, y, OFF, out)
-
-
-def cleanLeftBar(out: Output):
-    for x in range(0, 1):
-        for y in range(0, 8):
-            setCell(x, y, OFF, out)
-
-
-def cleanRightBar(out: Output):
-    for x in range(7, 8):
-        for y in range(0, 8):
-            setCell(x, y, OFF, out)
-
-
-def cleanButtons(out: Output):
-    for x in range(8, 9):
-        for y in range(0, 8):
-            setCell(x, y, OFF, out)
-
-
-def cleanBall(ball: Ball, out: Output):
-    setCell(ball.lastX, ball.lastY, OFF, out)
-
-
-def flashBoard(colour: Color, out: Output, repeat=1):
-    for _ in range(repeat):
-        setAllCells(colour, out)
-        sleep(0.5)
-        setAllCells(OFF, out)
-        sleep(0.5)
-
-
-def initGame(ball: Ball, barLeft: Bar, barRight: Bar):
-    ball.x, ball.y = getRandomCell(3, 4, 3, 4)
-    barLeft.x = 0
-    barLeft.y = getRandomCell(0, 0, 2, 3)[1]
-    barLeft.height = 3
-    barRight.x = 7
-    barRight.y = getRandomCell(0, 0, 2, 3)[1]
-    barRight.height = 3
-
-
-def showGame(ball: Ball, barLeft: Bar, barRight: Bar, out: Output):
-    cleanBall(ball, out)
-    setCell(ball.x, ball.y, GREEN, out)
-    for i in range(barLeft.height):
-        setCell(barLeft.x, barLeft.y + i, RED, out)
-    for i in range(barRight.height):
-        setCell(barRight.x, barRight.y + i, RED, out)
-
-
-def thread(inp: Input, out: Output):
-    print("oui")
-    while(1):
-        event = pollEvent(inp)
-        if (event):
-            if (event.down):
-                if(event.x == 8 and event.y == 0):
-                    setCell(event.x, event.y, AMBER, out)
-                    barLeft.y -= 1
-                    cleanLeftBar(out)
-                if(event.x == 8 and event.y == 1):
-                    setCell(event.x, event.y, AMBER, out)
-                    barLeft.y += 1
-                    cleanLeftBar(out)
-                if(event.x == 8 and event.y == 6):
-                    setCell(event.x, event.y, AMBER, out)
-                    barRight.y -= 1
-                    cleanRightBar(out)
-                if(event.x == 8 and event.y == 7):
-                    setCell(event.x, event.y, AMBER, out)
-                    barRight.y += 1
-                    cleanRightBar(out)
-                cleanButtons(out)
-
-
-barLeft = Bar()
-barRight = Bar()
+from utils import *
 
 
 def main():
-    input, output = init()
+    global quit
 
+    input, output = init()
     ball = Ball()
 
-    initGame(ball, barLeft, barRight)
+    initGame(ball, output)
+    showGame(ball, output)
 
-    showGame(ball, barLeft, barRight, output)
-
-    x = threading.Thread(target=thread, args=(input, output))
+    x = threading.Thread(target=threadInputs, args=(input, output))
     x.start()
 
-    while(1):
-        while(ball.x != 6):
-            ball.lastX = ball.x
-            ball.lastY = ball.y
-            ball.x += 1
-            showGame(ball, barLeft, barRight, output)
-            sleep(0.1)
-        while(ball.x != 1):
-            ball.lastX = ball.x
-            ball.lastY = ball.y
-            ball.x -= 1
-            showGame(ball, barLeft, barRight, output)
-            sleep(0.1)
+    while(not quit):
+        '''
+        Check if the ball is on the edges of the ball grid
+        and either changes its direction or ends the game
+        '''
+
+        # top left corner
+        if(ball.x == 1 and ball.y == 0 and barLeft.y == 0):
+            ball.direction = Direction.SE
+        # top right corner
+        elif(ball.x == 6 and ball.y == 0 and barRight.y == 0):
+            ball.direction = Direction.SW
+        # bottom left corner
+        elif(ball.x == 1 and ball.y == 7 and barLeft.y == 5):
+            ball.direction = Direction.NE
+        # bottom right corner
+        elif(ball.x == 6 and ball.y == 7 and barRight.y == 5):
+            ball.direction = Direction.NW
+
+        # left column of the ball grid
+        elif(ball.x == 1):
+            # top of the left bar
+            if(ball.y == barLeft.y):
+                ball.direction = Direction.NE
+            # middle of the left bar
+            elif(ball.y == barLeft.y + 1):
+                ball.direction = Direction.E
+            # bottom of the left bar
+            elif(ball.y == barLeft.y + 2):
+                ball.direction = Direction.SE
+            # not touching the left bar
+            else:
+                print("Orange player looses!")
+                quit = True
+
+        # right column of the ball grid
+        elif(ball.x == 6):
+            # top of the right bar
+            if(ball.y == barRight.y):
+                ball.direction = Direction.NW
+            # middle of the right bar
+            elif(ball.y == barRight.y + 1):
+                ball.direction = Direction.W
+            # bottom of the right bar
+            elif(ball.y == barRight.y + 2):
+                ball.direction = Direction.SW
+            # not touching the right bar
+            else:
+                print("Red player looses!")
+                quit = True
+
+        # top row of the ball grid
+        elif(ball.y == 0):
+            # coming from the NW
+            if(ball.direction == Direction.NW):
+                ball.direction = Direction.SW
+            # coming from the NE
+            elif(ball.direction == Direction.NE):
+                ball.direction = Direction.SE
+            else:
+                print("[ERROR] Ball in (" + str(ball.x) + " + " + str(ball.y) +
+                      ") has an impossible direction : " + str(ball.direction))
+                x.join()
+                exit(-1)
+
+        # bottom row of the ball grid
+        elif(ball.y == 7):
+            # coming from the SW
+            if(ball.direction == Direction.SW):
+                ball.direction = Direction.NW
+            # coming from the SE
+            elif(ball.direction == Direction.SE):
+                ball.direction = Direction.NE
+            else:
+                print("[ERROR] Ball in (" + str(ball.x) + " + " + str(ball.y) +
+                      ") has an impossible direction : " + str(ball.direction))
+                x.join()
+                exit(-1)
+
+        moveBall(ball)
+        showGame(ball, output)
+        sleep(ball.speed)
 
     setAllCells(OFF, output)
+    exit(1)
 
 
 if __name__ == "__main__":

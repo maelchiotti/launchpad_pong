@@ -5,23 +5,25 @@ from random import randint, uniform
 
 DEBUG = False
 
+
 def log(stuff):
     if DEBUG:
         print(f"[LOG] {stuff}")
+
 
 class Enemy:
     health = 3
     position = None
 
+
 class Settings:
     enemy_spawn_delay = 5
     diffIncrease = 0.1
     health_dict = {
-        3:launchpad.GREEN,
-        2:launchpad.AMBER,
-        1:launchpad.RED,
+        3: launchpad.GREEN,
+        2: launchpad.ORANGE,
+        1: launchpad.RED,
     }
-
 
 
 def getRandomCell():
@@ -29,6 +31,7 @@ def getRandomCell():
     x = randint(0, 7)
     y = randint(0, 7)
     return x, y
+
 
 def getEnemyPositions(grid) -> list[list]:
     '''Returns a list of [x, y] lists of positions of enemies'''
@@ -38,8 +41,9 @@ def getEnemyPositions(grid) -> list[list]:
         for x in range(len(grid[y])):
             if isinstance(grid[y][x], Enemy):
                 enemies.append([x, y])
-    
+
     return enemies
+
 
 def getEnemies(grid) -> list[Enemy]:
     '''Returns a list of enemy objects from the grid'''
@@ -56,6 +60,7 @@ def getEnemies(grid) -> list[Enemy]:
 
     return enemies
 
+
 def getSpecificEnemy(grid, cords) -> Enemy:
     '''Returns a specific enemy from cordinaates, if it exists'''
     for enemy in getEnemies(grid):
@@ -63,11 +68,13 @@ def getSpecificEnemy(grid, cords) -> Enemy:
             return enemy
     return None
 
+
 def hitEnemy(grid, cords):
     '''Returns True if the cords given hits an enemy'''
     positions = getEnemyPositions(grid)
     if cords in positions:
         return True
+
 
 def getSpawnDelay(diff):
     maxDelay = 5 * (1 / diff)
@@ -75,8 +82,10 @@ def getSpawnDelay(diff):
 
     return delay
 
+
 def printInfo(h, s, msgs):
     print("\n" * 15 + msgs + f"\nHealth: {h}\nScore: {s}\n")
+
 
 def flash_board(colour, out, t=3):
     for _ in range(t):
@@ -85,12 +94,13 @@ def flash_board(colour, out, t=3):
         launchpad.setAllCells(launchpad.OFF, out)
         sleep(0.2)
 
-def render_heath_bar(health, device, col=launchpad.AMBER):
+
+def render_heath_bar(health, device, col=launchpad.ORANGE):
     light_cords = [7, 6, 5, 4, 3]
     # Clear bar
     for l in light_cords:
         launchpad.setCell(8, l, launchpad.OFF, device)
-        
+
     if health >= 5:
         for l in light_cords:
             launchpad.setCell(8, l, col, device)
@@ -105,6 +115,7 @@ def render_heath_bar(health, device, col=launchpad.AMBER):
 
 # Generate game grid
 grid = [[None for _ in range(8)] for _ in range(8)]
+
 
 def main():
     # Init launchpad
@@ -122,7 +133,7 @@ def main():
     render_heath_bar(health, OutputDevice)
 
     while running:
-        
+
         # Spawn new enemy
         if time() - lastEnemySpawn > spawnDelay:
             log("Time to spawn enemy:")
@@ -145,7 +156,6 @@ def main():
                 log(f"Cell is not clear. Will try again next round")
                 continue
 
-        
         # Poll for events
 
         event = launchpad.pollEvent(InputDevice)
@@ -159,7 +169,8 @@ def main():
                         log(f"Hit enemy")
                     else:
                         log(f"Killed enemy")
-                        launchpad.setCell(event.cords[0], event.cords[1], launchpad.OFF, OutputDevice)
+                        launchpad.setCell(
+                            event.cords[0], event.cords[1], launchpad.OFF, OutputDevice)
                         grid[event.cords[1]][event.cords[0]] = None
 
                         score += 1
@@ -170,13 +181,13 @@ def main():
                     health -= 1
                     render_heath_bar(health, OutputDevice)
                     if health > 0:
-                        printInfo(health, score, "Missed! The enemies hit you!")
+                        printInfo(health, score,
+                                  "Missed! The enemies hit you!")
                     else:
                         print("YOU LOST!\nYou ran out of health, gg.\n")
                         running = False
                         continue
-                    
-        
+
         # Render grid
         for enemyPosition in getEnemyPositions(grid):
             enemy = getSpecificEnemy(grid, enemyPosition)
@@ -189,6 +200,7 @@ def main():
             launchpad.setCell(x, y, colour, OutputDevice)
 
     flash_board(launchpad.RED, OutputDevice)
+
 
 if __name__ == "__main__":
     main()
