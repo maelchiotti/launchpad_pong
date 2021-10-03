@@ -3,8 +3,8 @@ from launchpadbridge.launchpad import *
 import sys
 from threading import Thread
 from queue import Queue
-from time import time, sleep
-from random import randint, uniform
+from time import sleep
+from random import randint
 from enum import Enum
 
 
@@ -52,10 +52,14 @@ class Bar:
 """
 Return a random cell on the grid
 (allows to place the ball at the begining of the game)
+@param int minX minimum value for x
+@param int minX maximum value for x
+@param int minY minimum value for y
+@param int minY maximum value for y
 """
 
 
-def getRandomCell(minX, maxX, minY, maxY):
+def getRandomCell(minX: int, maxX: int, minY: int, maxY: int):
     x = randint(minX, maxX)
     y = randint(minY, maxY)
     return x, y
@@ -109,10 +113,11 @@ def turnOffButtons(out: midi.Output):
 
 """
 Turns off the LED at the last remembered position of the ball
+if it has moved since
 """
 
 
-def turnOffBall(ball: Ball, out: midi.Output):
+def turnOffBall(out: midi.Output):
     if(ball.lastX != ball.x or ball.lastY != ball.y):
         setCell(ball.lastX, ball.lastY, OFF, out)
 
@@ -120,30 +125,32 @@ def turnOffBall(ball: Ball, out: midi.Output):
 """
 Turns on and off all LEDs quickly to produce a flashing effect
 @param Color color color to light the LEDs with
-@param midi.Output out output device
+@param int delay delay after wich the LEDs are turned on are off
 @param int repeat number of times to flash the LEDs
 """
 
 
-def flashBoard(color: Color, out: midi.Output, repeat=1):
+def flashBoard(out: midi.Output, color: Color, delay: int = 0.5, repeat: int = 1):
     for _ in range(repeat):
         setAllCells(color, out)
-        sleep(0.5)
+        sleep(delay)
         setAllCells(OFF, out)
-        sleep(0.5)
+        sleep(delay)
 
 
 """
 Initializes all variables to their default values
+@param int initialSpeed initial speed of the ball
 """
 
 
-def initGame(out: midi.Output):
-    global play
-    global quit
+def initGame(out: midi.Output, initialSpeed: int):
     global barLeft
     global barRight
     global ball
+    global play
+    global quit
+    global winner
 
     barLeft = Bar()
     barRight = Bar()
@@ -152,17 +159,18 @@ def initGame(out: midi.Output):
     ball.x, ball.y = getRandomCell(3, 4, 3, 4)
     ball.lastX = ball.x
     ball.lastY = ball.y
-    ball.speed = 0.5
+    ball.speed = initialSpeed
     ball.direction = Direction.E
 
     barLeft.x = 0
-    barLeft.y = getRandomCell(0, 0, 2, 3)[1]
+    barLeft.y = ball.y - 1  # bars are aligned with the ball
 
     barRight.x = 7
-    barRight.y = getRandomCell(0, 0, 2, 3)[1]
+    barRight.y = ball.y - 1  # bars are aligned with the ball
 
     play = False
     quit = False
+    winner = "NONE"
 
     # right bar controls
     setCell(8, 6, RED, out)
@@ -182,10 +190,13 @@ Lights on LEDs according to the current game state
 
 
 def showGame(out: midi.Output):
-    turnOffBall(ball, out)
+    # ball
+    turnOffBall(out)
     setCell(ball.x, ball.y, GREEN, out)
+    # left bar
     for i in range(barLeft.height):
         setCell(barLeft.x, barLeft.y + i, ORANGE, out)
+    # right bar
     for i in range(barRight.height):
         setCell(barRight.x, barRight.y + i, RED, out)
 
@@ -238,7 +249,9 @@ def moveBall():
 
 
 """
-Modifies the coordinates of the ball depending on the player inputs
+Modifies the coordinates of the bar depending on the player inputs
+@param bool left if the left bar needs to be moved, otherwise it's the right one
+@param bool up if the bar needs to be moved upwards, otherwise it's downwards
 """
 
 
@@ -271,11 +284,11 @@ Thread that monitors player inputs while the game is running
 
 
 def threadInputs(inp: midi.Input, out: midi.Output):
-    global play
-    global quit
     global barLeft
     global barRight
     global ball
+    global play
+    global quit
 
     while(not quit):
         event = pollEvent(inp)
@@ -294,32 +307,44 @@ def threadInputs(inp: midi.Input, out: midi.Output):
                     if(moveBar(False, False)):
                         turnOffRightBar(out)
                 elif(event.x == 8 and event.y == 3):
-                    if(play):
-                        break
-                        # initGame(ball, out)
-                    else:
+                    if(not play):
                         play = True
                 elif(event.x == 8 and event.y == 4):
                     quit = True
 
 
-def threadPrint(output: midi.Output):
+def threadPrint(out: midi.Output):
     global quit
 
     while(not quit):
-        showGame(output)
+        showGame(out)
+
+    if(winner == "RED"):
+        flashBoard(out, RED, 2, 1)
+    elif(winner == "ORANGE"):
+        flashBoard(out, ORANGE, 2, 1)
+    elif(winner == "NONE"):
+        pass
+    else:
+        print("[ERROR] Winner has an unknown value: " + winner)
+        exit(-1)
 
 
-def threadGame():
-    global play
-    global quit
+def threadGame(out: midi.Output, speedDrop: int, speedMin: int):
     global barLeft
     global barRight
     global ball
+    global play
+    global quit
+    global winner
 
     # Wait for the player to press the play or exit buttons
     while(not play and not quit):
         pass
+
+    setCell(8, 3, OFF, out)  # play button
+
+    barHitCounter = 0
 
     while(not quit):
         '''
@@ -345,15 +370,18 @@ def threadGame():
             # top of the left bar
             if(ball.y == barLeft.y):
                 ball.direction = Direction.NE
+                barHitCounter += 1
             # middle of the left bar
             elif(ball.y == barLeft.y + 1):
                 ball.direction = Direction.E
+                barHitCounter += 1
             # bottom of the left bar
             elif(ball.y == barLeft.y + 2):
                 ball.direction = Direction.SE
+                barHitCounter += 1
             # not touching the left bar
             else:
-                print("Orange player looses!")
+                winner = "RED"
                 quit = True
 
         # right column of the ball grid
@@ -361,15 +389,18 @@ def threadGame():
             # top of the right bar
             if(ball.y == barRight.y):
                 ball.direction = Direction.NW
+                barHitCounter += 1
             # middle of the right bar
             elif(ball.y == barRight.y + 1):
                 ball.direction = Direction.W
+                barHitCounter += 1
             # bottom of the right bar
             elif(ball.y == barRight.y + 2):
                 ball.direction = Direction.SW
+                barHitCounter += 1
             # not touching the right bar
             else:
-                print("Red player looses!")
+                winner = "ORANGE"
                 quit = True
 
         # top row of the ball grid
@@ -399,14 +430,18 @@ def threadGame():
                 exit(-1)
 
         moveBall()
-        sleep(ball.speed)
+        finalSpeed = ball.speed - barHitCounter * speedDrop
+        if(finalSpeed < speedMin):
+            finalSpeed = speedMin
+        sleep(finalSpeed)
 
 
 '''
-Global variables that need to be accessed by both threads
+Global variables that need to be accessed by all threads
 '''
 barLeft = None
 barRight = None
 ball = None
 play = None
 quit = None
+winner = None

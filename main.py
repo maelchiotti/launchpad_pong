@@ -4,9 +4,14 @@ from utils import *
 def main():
     input, output = init()
 
-    initGame(output)
+    setAllCells(OFF, output)
 
-    game = Thread(target=threadGame, args=())
+    initialSpeed = 0.5
+    speedDrop = 0.02
+    speedMin = 0.1
+    initGame(output, initialSpeed)
+
+    game = Thread(target=threadGame, args=(output, speedDrop, speedMin))
     inputs = Thread(target=threadInputs, args=(input, output))
     print = Thread(target=threadPrint, args=(output, ))
 
