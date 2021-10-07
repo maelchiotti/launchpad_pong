@@ -256,25 +256,24 @@ Modifies the coordinates of the bar depending on the player inputs
 
 
 def moveBar(left: bool, up: bool):
-    if(play):
-        if(left):
-            if(up):
-                if(barLeft.y >= 1):
-                    barLeft.y -= 1
-                    return True
-            else:
-                if(barLeft.y <= 4):
-                    barLeft.y += 1
-                    return True
+    if(left):
+        if(up):
+            if(barLeft.y >= 1):
+                barLeft.y -= 1
+                return True
         else:
-            if(up):
-                if(barRight.y >= 1):
-                    barRight.y -= 1
-                    return True
-            else:
-                if(barRight.y <= 4):
-                    barRight.y += 1
-                    return True
+            if(barLeft.y <= 4):
+                barLeft.y += 1
+                return True
+    else:
+        if(up):
+            if(barRight.y >= 1):
+                barRight.y -= 1
+                return True
+        else:
+            if(barRight.y <= 4):
+                barRight.y += 1
+                return True
     return False
 
 
@@ -292,8 +291,13 @@ def threadInputs(inp: midi.Input, out: midi.Output):
 
     while(not quit):
         event = pollEvent(inp)
-        if (event):
-            if (event.down):
+        if (event and event.down):
+            if(event.x == 8 and event.y == 3):
+                if(not play):
+                    play = True
+            elif(event.x == 8 and event.y == 4):
+                quit = True
+            elif(play):
                 if(event.x == 8 and event.y == 0):
                     if(moveBar(True, True)):
                         turnOffLeftBar(out)
@@ -306,11 +310,6 @@ def threadInputs(inp: midi.Input, out: midi.Output):
                 elif(event.x == 8 and event.y == 7):
                     if(moveBar(False, False)):
                         turnOffRightBar(out)
-                elif(event.x == 8 and event.y == 3):
-                    if(not play):
-                        play = True
-                elif(event.x == 8 and event.y == 4):
-                    quit = True
 
 
 def threadPrint(out: midi.Output):
