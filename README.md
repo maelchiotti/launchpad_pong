@@ -7,7 +7,7 @@ This is a simple pong game programmed for the Novation LaunchPad Mini MK2.
 ## How to launch
 
 - Install [Python](https://www.python.org/downloads/)
-- Download `launchpad_pong.exe` from the [Releases](https://github.com/maelchiotti/launchpad-pong/releases/tag/Executable) and execute it
+- Download `launchpad_pong.exe` from the [Releases](https://github.com/maelchiotti/launchpad-pong/releases) and execute it
 
 (Alternatively, you can also clone or download this repository and launch `main.py`)
 
