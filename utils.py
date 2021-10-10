@@ -1,8 +1,6 @@
 import pygame.midi as midi
 from launchpadbridge.launchpad import *
-import sys
 from threading import Thread
-from queue import Queue
 from time import sleep
 from random import randint
 from enum import Enum
@@ -148,9 +146,9 @@ def initGame(out: midi.Output, initialSpeed: int):
     global barLeft
     global barRight
     global ball
+    global winner
     global play
     global quit
-    global winner
 
     barLeft = Bar()
     barRight = Bar()
@@ -312,6 +310,11 @@ def threadInputs(inp: midi.Input, out: midi.Output):
                         turnOffRightBar(out)
 
 
+"""
+Thread that prints informations while the game is running
+"""
+
+
 def threadPrint(out: midi.Output):
     global quit
 
@@ -329,13 +332,18 @@ def threadPrint(out: midi.Output):
         exit(-1)
 
 
+"""
+Thread that handles the game
+"""
+
+
 def threadGame(out: midi.Output, speedDrop: int, speedMin: int):
     global barLeft
     global barRight
     global ball
+    global winner
     global play
     global quit
-    global winner
 
     # Wait for the player to press the play or exit buttons
     while(not play and not quit):
@@ -346,10 +354,10 @@ def threadGame(out: midi.Output, speedDrop: int, speedMin: int):
     barHitCounter = 0
 
     while(not quit):
-        '''
+        """
         Check if the ball is on the edges of the ball grid
         and either changes its direction or ends the game
-        '''
+        """
 
         # top left corner
         if(ball.x == 1 and ball.y == 0 and barLeft.y == 0):
@@ -435,12 +443,12 @@ def threadGame(out: midi.Output, speedDrop: int, speedMin: int):
         sleep(finalSpeed)
 
 
-'''
+"""
 Global variables that need to be accessed by all threads
-'''
+"""
 barLeft = None
 barRight = None
 ball = None
+winner = None
 play = None
 quit = None
-winner = None
