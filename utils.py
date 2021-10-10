@@ -131,11 +131,13 @@ Turns on and off all LEDs quickly to produce a flashing effect
 
 
 def flashBoard(out: midi.Output, color: Color, delay: int = 0.5, repeat: int = 1):
-    for _ in range(repeat):
+    for i in range(repeat):
         setAllCells(color, out)
         sleep(delay)
         setAllCells(OFF, out)
-        sleep(delay)
+        # avoid calling the sleep() function on the last iteration
+        if(i < repeat - 1):
+            sleep(delay)
 
 
 """
